@@ -16,40 +16,36 @@
 	
 ***/
 
-/** Framework Loader **/
+/** Define static default values **/
+define( 'FW_NAME'        , 'LightJet' );
+define( 'FW_VERSION'     , '0.2.0' );
+define( 'FW_COPY_STRING' , FW_NAME . ' (c) 2011 Bombshellnet.org Ver. ' . FW_VERSION );
+define( 'FW_COPY_HTML'   , preg_replace( '`(\(c\))`', '&copy;' , FW_COPY_STRING ) );
+define( 'FW_PATH_CONFIG' , FW_ROOT_PATH . 'Config' . DS );
+define( 'FW_PATH_LIB'    , FW_ROOT_PATH , 'Library' . DS );
+define( 'DATE_SYSTEM' , date( 'r' ) );
+define( 'DATE' , date( 'D, M d Y h:i:s A O ') );
 
-/** Settings **/
-
-/*
-	Root path of this framework.
-	
-	 Note: Ending slash is required
- 	 
- 	 Note: If running this framework on WIndows, remember to use the proper prefix. IE. X:\
- 	 
-	 Note: If left black, this file base directory will be considered as the
-	       root path.
-*/
-$root_path = "";
-
-
-/*** Do NOT modify anything below this line ***/
-
-/** Setup default functions, variables, constants **/
-define( 'DS' , DIRECTORY_SEPARATOR ); /* Shorten the directory separator */
-function path_rewrite( $path ) { return preg_replace( '`(\\\|/)`' , DS , $path ); }
-if ( empty( $root_path ) ) $root_path = dirname( __FILE__ ) . DS;
-else $root_path = path_rewrite( $root_path );
-
-/** verify if core.php could be found **/
-if ( !is_file( $root_path . 'Core.php' ) ) {
-	print "Error: Framework Core.php could not be found within $root_path";
+/** Various information about the system **/
+if ( substr( PHP_OS, 0, 3 ) == 'WIN' ) {
+	define( 'FW_OS' , 'MS_Windows' );
+} elseif ( strcasecmp( substr( PHP_OS, 0, 5 ) , 'LINUX' ) == 0 ) {
+	define( 'FW_OS' , 'Linux' );
+} else {
+	define( 'FW_OS' , 'Unknown' );
 }
 
-/** Continue defining constants **/
-define( 'FW_ROOT_PATH' , $root_path );
+/** Slight modification to PHP settings **/
+$include_path = ini_get( 'include_path' );
+if ( FW_OS == 'MS_Windows' ) {
+	$include_path .= ';';
+} else {
+	$include_path .= ":";
+}
+ini_set( 'include_path' , $include_path .= FW_ROOT_PATH );
 
-/** Clean up **/
-unset( $root_path );
-
-require FW_ROOT_PATH . 'Core.php';
+/** Now lets load the framework **/
+require FW_PATH_LIB . 'functions.php';
+require FW_PATH_BASE . path_rewrite( 'interface/Default.Class.php' );
+$sapi = php_sapi_name();
+require FW_PATH_BASE . path_rewrite( 'interface/' ) . ( $sapi == 'cli' || $sapi == 'embed' ) ? 'Cli.Class.php' : 'Web.Class.php';
