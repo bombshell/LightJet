@@ -1,0 +1,14 @@
+<div style="font-family: arial, verdana, helvetica; width: 400px; background-color: white">
+	<strong>Light<span style="color: blue;">Jet</span></strong> <%version%>
+	<hr style="border: 1px dotted black; margin-top: 10px" />
+	<div style="font-size: small">
+		Message Type: <%message_type%> <br />
+		Message Code: <%message_code%> <br />
+		Config Name: <%config_name%> <br />
+		<br />
+		<%message%>
+		<br />
+		<%backtrace%>
+	</div>
+	<hr style="border: 1px dotted black; margin-top: 10px" />
+</div>

@@ -16,42 +16,32 @@
 	
 ***/
 
-/** Define static default values **/
-define( 'FW_NAME'        , 'LightJet' );
-define( 'FW_VERSION'     , '0.2.0' );
-define( 'FW_COPY_STRING' , FW_NAME . ' (c) 2011 Bombshellnet.org Ver. ' . FW_VERSION );
-define( 'FW_COPY_HTML'   , preg_replace( '`(\(c\))`', '&copy;' , FW_COPY_STRING ) );
-define( 'FW_PATH_CONFIG' , FW_ROOT_PATH . 'Config' . DS );
-define( 'FW_PATH_LIB'    , FW_ROOT_PATH . 'Library' . DS );
-define( 'DATE_SYSTEM'    , date( 'r' ) );
-define( 'DATE'           , date( 'D, M d Y h:i:s A O ') );
+define( 'DEFAULT_ERROR_BLOCK' , FW_PATH_LIB . 'errorBlockWeb.txt' );
 
-/** Various information about the system **/
-if ( substr( PHP_OS, 0, 3 ) == 'WIN' ) {
-	define( 'FW_OS' , 'MS_Windows' );
-} elseif ( strcasecmp( substr( PHP_OS, 0, 5 ) , 'LINUX' ) == 0 ) {
-	define( 'FW_OS' , 'Linux' );
-} else {
-	define( 'FW_OS' , 'Unknown' );
+/** Set server software **/
+if ( !preg_match( '`((Microsoft-IIS)/(.*)\s?)`' , $_SERVER[ 'SERVER_SOFTWARE' ] , $match ) ) {
+	if ( !preg_match( '`((Apache)/((\d|\.)*))`' , $_SERVER[ 'SERVER_SOFTWARE' ] , $match ) ) {
+		/** Next Rule to check **/
+	}
+}
+define( 'FW_SERVER_APP_NAME' , $match[2] );
+define( 'FW_SERVER_APP_VER'  , $match[3] );
+
+/**
+ * @category Class
+ * @name Framework
+ * @version 0.2.0
+ * 
+ */
+class Framework extends Core
+{
+	protected $sapi = 'web';
+	
+	public function __construct()
+	{
+		parent::__construct();
+	}	
+	
 }
 
-/** Slight modification to PHP settings **/
-$include_path = ini_get( 'include_path' );
-if ( FW_OS == 'MS_Windows' ) {
-	$include_path .= ';';
-} else {
-	$include_path .= ":";
-}
-ini_set( 'include_path' , $include_path .= FW_ROOT_PATH );
-
-/** Now lets load the framework **/
-require FW_PATH_LIB . 'functions.php';
-require FW_ROOT_PATH . path_rewrite( 'Interface/Default.Class.php' );
-
-$sapi = php_sapi_name();
-$interface = ( $sapi == 'cli' || $sapi == 'embed' ) ? 'Cli.Class.php' : 'Web.Class.php';
-
-/** Clear up **/
-unset( $sapi , $include_path );
-
-require FW_ROOT_PATH . 'Interface' . DS . $interface;
+$LightJet = new Framework;
