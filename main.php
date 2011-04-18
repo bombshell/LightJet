@@ -23,8 +23,6 @@
 /*
 	Root path of this framework.
 	
-	 Note: Ending slash is required
- 	 
  	 Note: If running this framework on WIndows, remember to use the proper prefix. IE. X:\
  	 
 	 Note: If left black, this file base directory will be considered as the
@@ -39,7 +37,12 @@ $root_path = "";
 define( 'DS' , DIRECTORY_SEPARATOR ); /* Shorten the directory separator */
 function path_rewrite( $path ) { return preg_replace( '`(\\\|/)`' , DS , $path ); }
 if ( empty( $root_path ) ) $root_path = dirname( __FILE__ ) . DS;
-else $root_path = path_rewrite( $root_path );
+else {
+	if ( !preg_match( '/(\\\|/)$/' , $root_path ) ) {
+		$root_path .= DS;
+	}
+	$root_path = path_rewrite( $root_path );
+}
 
 /** verify if core.php could be found **/
 if ( !is_file( $root_path . 'Core.php' ) ) {
