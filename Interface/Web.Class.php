@@ -37,7 +37,7 @@ class Framework extends Core
 {
 	protected $sapi = 'web';
 	
-	public function __construct( $config_path )
+	public function __construct( $config_path = null )
 	{
 		/** init Core **/
 		parent::__construct( $config_path );
@@ -80,9 +80,18 @@ class Framework extends Core
 			$replace[ '<%backtrace%>' ] = null;
 		}
 		$replace[ '<%message%>' ] = $errormsg;
-		print $this->stripReplace( $replace , null , DEFAULT_ERROR_BLOCK );
+		if ( !$str = $this->stripReplace( $replace , null , DEFAULT_ERROR_BLOCK ) ) {
+			/** Remainder, if you make adjustments here, remember to make adjustments in Cli.Class.php **/
+			$str = "Error ID: $errorid\n";
+			$str .= "Error Message: $errormsg\n\n";
+			$str .= "Error ID: ERRx0118\n";
+			$str .= "Error Message: Unable to retrieve Error Template\n";
+		}
+		print $str;
 	}
 	
 }
+
+echo $_SERVER[ 'REMOTE_ADDR' ];
 
 $LightJet = new Framework;

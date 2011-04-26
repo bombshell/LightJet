@@ -154,12 +154,10 @@ class Core
 		$handle = $this->storage[ 'fila_handler' ][ $file ][ 'handle' ];
 		$read   = true;
 		if ( is_resource( $handle ) ) {
-			
 			if ( !$data = @fread( $handle ,  filesize( $file ) ) ) {
 				$read = false;
 			}
 		} elseif ( is_file( $file ) ) {
-			
 			if ( $h = @fopen( $file , 'r+' ) ) {
 				/** Store file handler in memory for later usage **/
 				$this->storage[ 'fila_handler' ][ $file ][ 'handle' ] = $h;
@@ -172,6 +170,7 @@ class Core
 				if ( $this->debug >= 1 ) {
 					$this->throwError();
 				}
+				return false;
 			}
 		}
 		
@@ -260,7 +259,6 @@ class Core
 	 */
 	private function throwError()
 	{
-		/*** Bug Fix 04/25/2011 : Prevent the script from going into a function loop while initializing ***/
 		$this->printError( $this->errorId , $this->errorMsg );
 		exit(1);
 	}

@@ -30,7 +30,7 @@ class Framework extends Core
 {
 	public $sapi = 'cli';
 	
-	public function __construct( $config_path )
+	public function __construct( $config_path = null )
 	{
 		/** init Core **/
 		parent::__construct( $config_path );
@@ -62,7 +62,13 @@ class Framework extends Core
 		}
 		$replace[ '<%message%>' ] = $errormsg;
 		
-		$str = $this->stripReplace( $replace , null , DEFAULT_ERROR_BLOCK );
+		if ( !$str = $this->stripReplace( $replace , null , DEFAULT_ERROR_BLOCK ) ) {
+			/** Remainder, if you make adjustments here, remember to make adjustments in Web.Class.php **/
+			$str = "Error ID: $errorid\n";
+			$str .= "Error Message: $errormsg\n\n";
+			$str .= "Error ID: ERRx0118\n";
+			$str .= "Error Message: Unable to retrieve Error Template\n";
+		}
 		$handle = fopen( 'php://stderr' , 'w' );
 		fwrite($handle, $str );
 		fclose( $handle );
