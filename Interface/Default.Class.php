@@ -30,6 +30,7 @@ class Core
 	public $storage; /* Storage container for values */
 	public $config; /* Class configuration loaded from file */
 	public $debug; /* Debug level set by configuration */
+	public $initMode; /* Initialization mode */
 	
 	public function __construct( $path_config = null )
 	{
@@ -37,8 +38,9 @@ class Core
 			$path_config = FW_PATH_CONFIG . 'Default.php';
 		}
 		require $path_config;
-		$this->config = $_CFG;
-		$this->debug = $_CFG[ 'LG_Debug' ];
+		$this->config   = $_CFG;
+		$this->debug    = $_CFG[ 'LG_Debug' ];
+		$this->initMode = 'init';
 		
 		/* Enable debugging (verbose PHP) */
 		if ( $this->debug >= 1 ) {
@@ -57,106 +59,40 @@ class Core
 	
 	/**
 	 * @access Public
-	 * @method printError
-	 * @param (string) Error ID code
-	 * @param (string) Error Message associated with the Error ID
-	 * @return (null)
-	 * Pretty Print's the error
-	 * Note: This function in a web environment will verify remote IP address
-	 * Note: This function, if debug level 2, will include a backtrace in the output
-	 *  
+	 * @method backtrace
+	 * @return (string) backtrace
+	 * Builds backtrace string
+	 * 
 	 */
-	public function printError( $errorid , $errormsg )
+	public function createBacktrace()
 	{
-		/* Feature modified: 01/21/2011 3:22 AM : Updated compatibiliy with the new code */
-		/* Feature revised: 02/27/2011 1:49 PM : Updated code */
-		/*** Global Vars ***/
-		global $_RUNTIME_CFG;
-		
-		/* Set default hidden message */
-		$hidden_msg = 'Unfortunately, we\'ve encountered an error at this time';
-		
-		/*** Build Backtrace ***/
-		if ( $this->debug === 2 ) {
-			$array_backtrace = debug_backtrace();
-			$str = null;
-			foreach( $array_backtrace as $level => $backtrace ) {
-				$str .= "#$level ";
-				if ( !empty( $backtrace[ 'class' ] ) ) {
-					$str .= $backtrace[ 'class' ]. '->';
-				}
-				$str .= $backtrace[ 'function' ] . '(';
-				if ( !empty( $backtrace[ 'args' ] ) ) {
-					$func_args = null;
-					foreach( $backtrace[ 'args' ] as $arg ) {
-						if ( empty( $func_args ) ) {
-							$func_args = $arg;
-						} else {
-							$func_args .= ", $arg";
-						}
+		$array_backtrace = debug_backtrace();
+		$str = null;
+		foreach( $array_backtrace as $level => $backtrace ) {
+			$str .= "#$level ";
+			if ( !empty( $backtrace[ 'class' ] ) ) {
+				$str .= $backtrace[ 'class' ]. '->';
+			}
+			$str .= $backtrace[ 'function' ] . '(';
+			if ( !empty( $backtrace[ 'args' ] ) ) {
+				$func_args = null;
+				foreach( $backtrace[ 'args' ] as $arg ) {
+					if ( empty( $func_args ) ) {
+						$func_args = $arg;
+					} else {
+						$func_args .= ", $arg";
 					}
-					$str .= $func_args;
 				}
-				$str .= ') called at [' . $backtrace[ 'file' ] . ':' . $backtrace[ 'line' ]. ']' . "\r\n";
-				$str .= "#Object[$level]: \r\n";
-				foreach( $backtrace[ 'object' ] as $properties => $value ) {
-					$str .= " $properties => $value \r\n";
-				}
-				$str .= "\r\n";
+				$str .= $func_args;
 			}
-			$backtrace = $str;
-		}
-		
-		/* Only show error message to safe ip */
-		if ( $this->sapi == 'web' ) {
-			$safe_ip = explode( ',' , $this->config[ 'LG_Safe_Client_IP' ] );
-			if ( !in_array( $_SERVER[ 'REMOTE_ADDR' ] , $safe_ip ) ) {
-				$errormsg = $hidden_msg;
-				$backtrace = null;
+			$str .= ') called at [' . $backtrace[ 'file' ] . ':' . $backtrace[ 'line' ]. ']' . "\r\n";
+			$str .= "#Object[$level]: \r\n";
+			foreach( $backtrace[ 'object' ] as $properties => $value ) {
+				$str .= " $properties => $value \r\n";
 			}
+			$str .= "\r\n";
 		}
-		
-		/* Only print true error message if we debuging */
-		if ( !$this->debug ) {
-			$errormsg = $hidden_msg;
-		}
-		
-		if ( $this->sapi == 'cli' ) {
-			$msgtype = 'Error';
-		} else {
-			$msgtype = '<span style="color: red;">Error</span>';
-		}
-		
-		$replace[ '<%version%>' ]      = FW_VERSION;
-		$replace[ '<%message_type%>' ] = $msgtype;
-		$replace[ '<%message_code%>' ] = $errorid;
-		$replace[ '<%config_name%>' ]  = $this->config[ 'LG_Config_Name' ];
-		
-		/*** Include backtrace if possible ***/
-		if ( !empty( $backtrace ) ) {
-			if ( $this->sapi == 'web' ) {
-				$textarea = '<br /><strong>Backtrace</strong><br />' . "\r\n";
-				$textarea .= '<textarea rows=20 cols=100>' . "\r\n";
-				$textarea .= $backtrace;
-				$textarea .= '</textarea>';
-			} else {
-				$textarea = $backtrace;
-			}
-			$replace[ '<%backtrace%>' ] = $textarea;
-		} else {
-			$replace[ '<%backtrace%>' ] = null;
-		}
-		$replace[ '<%message%>' ] = $errormsg;
-		
-		/*** Feature added 02/27/11 1:55 PM : Write to stderr and return exit status ***/
-		if ( $this->sapi == 'cli' ) {
-			$str = $this->strReplace( $replace , null , DEFAULT_ERROR_BLOCK );
-			$handle = fopen( 'php://stderr' , 'w' );
-			fwrite($handle, $str );
-			fclose( $handle );
-			exit(1);
-		}
-	    print $this->strReplace( $replace , null , DEFAULT_ERROR_BLOCK );
+		return $str;
 	}
 	
 	/**
@@ -168,22 +104,26 @@ class Core
 	 * @return (string) Return a string with replace text
 	 * String with replaced text 
 	 */
-	public function strReplace( $arr , $str , $file = false )
+	public function stripReplace( $replaceArr , $replaceStr , $file = false )
 	{
 		/* Open file for substition */
-		if ( $file ) {
-			if ( !$str = $this->fileRead( $file ) ) {
+		if ( !empty( $file ) ) {
+			if ( $this->initMode == 'init' ) {
+				if ( !$replaceStr = @file_get_contents( $file ) ) {
+					return false;
+				}
+			} elseif ( !$replaceStr = $this->fileRead( $file ) ) {
 				return false;
 			}
 		}
 		
 		/* Build search and replace array */
-		foreach( $arr as $key => $value ) {
+		foreach( $replaceArr as $key => $value ) {
 			$search[] = $key;
 			$replace[] = $value;
 		}
 		
-		return str_replace( $search , $replace , $str );
+		return str_replace( $search , $replace , $replaceStr );
 	}
 	
 	/**
@@ -320,6 +260,7 @@ class Core
 	 */
 	private function throwError()
 	{
+		/*** Bug Fix 04/25/2011 : Prevent the script from going into a function loop while initializing ***/
 		$this->printError( $this->errorId , $this->errorMsg );
 		exit(1);
 	}

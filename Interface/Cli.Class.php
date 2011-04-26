@@ -16,26 +16,19 @@
 	
 ***/
 
-define( 'DEFAULT_ERROR_BLOCK' , FW_PATH_LIB . 'errorBlockWeb.txt' );
+define( 'DEFAULT_ERROR_BLOCK' , FW_PATH_LIB . 'errorBlockCli.txt' );
 
-/** Set server software **/
-if ( !preg_match( '`((Microsoft-IIS)/(.*)\s?)`' , $_SERVER[ 'SERVER_SOFTWARE' ] , $match ) ) {
-	if ( !preg_match( '`((Apache)/((\d|\.)*))`' , $_SERVER[ 'SERVER_SOFTWARE' ] , $match ) ) {
-		/** Next Rule to check **/
-	}
+if ( FW_OS == 'Linux' ) {
+	define( 'FW_SERVER_APP_NAME' , 'Linux' );
+	define( 'FW_SERVER_APP_VER'  , `uname -r` );
+} else {
+	define( 'FW_SERVER_APP_NAME' , 'Uknown' );
+	define( 'FW_SERVER_APP_VER'  , 'Unknown' );
 }
-define( 'FW_SERVER_APP_NAME' , $match[2] );
-define( 'FW_SERVER_APP_VER'  , $match[3] );
-
-/**
- * @category Class
- * @name Framework
- * @version 0.2.0
- * 
- */
+		
 class Framework extends Core
 {
-	protected $sapi = 'web';
+	public $sapi = 'cli';
 	
 	public function __construct( $config_path )
 	{
@@ -55,34 +48,24 @@ class Framework extends Core
 	 * Note: This function, if debug level 2, will include a backtrace in the output
 	 *  
 	 */
-	public function printError($errorid, $errormsg)
+	public function printError( $errorid , $errormsg )
 	{
-		/* Set default hidden message */
-		$hidden_msg = 'Unfortunately, we\'ve encountered an error at this time';
-		
-		$safe_ip = explode( ',' , $this->config[ 'LG_Safe_Client_IP' ] );
-		if ( !in_array( $_SERVER[ 'REMOTE_ADDR' ] , $safe_ip ) ) {
-			$errormsg = $hidden_msg;
-			$backtrace = null;
-		}
-		
 		$replace[ '<%version%>' ]      = FW_VERSION;
 		$replace[ '<%message_type%>' ] = '<span style="color: red;">Error</span>';
 		$replace[ '<%message_code%>' ] = $errorid;
 		$replace[ '<%config_name%>' ]  = $this->config[ 'LG_Config_Name' ];
+		
 		if ( $this->debug == 2 ) {
-			$textarea = '<br /><strong>Backtrace</strong><br />' . "\r\n";
-			$textarea .= '<textarea rows=20 cols=100>' . "\r\n";
-			$textarea .= $this->createBacktrace();
-			$textarea .= '</textarea>';
-			$replace[ '<%backtrace%>' ] = $textarea;
+			$replace[ '<%backtrace%>' ] = $this->createBacktrace();
 		} else {
 			$replace[ '<%backtrace%>' ] = null;
 		}
 		$replace[ '<%message%>' ] = $errormsg;
-		print $this->stripReplace( $replace , null , DEFAULT_ERROR_BLOCK );
+		
+		$str = $this->stripReplace( $replace , null , DEFAULT_ERROR_BLOCK );
+		$handle = fopen( 'php://stderr' , 'w' );
+		fwrite($handle, $str );
+		fclose( $handle );
+		exit(1);
 	}
-	
 }
-
-$LightJet = new Framework;
