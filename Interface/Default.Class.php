@@ -59,6 +59,32 @@ class Core
 	
 	/**
 	 * @access Public
+	 * @method loadClass
+	 * @return (string) Class Name
+	 * Loads Class Name into memory
+	 * 
+	 */
+	public function loadClass( $className )
+	{	
+		$classFile = FW_PATH_LIB . 'Classes' . DS . $className . '.Class.php'; 
+		if ( is_file( $classFile ) ) {
+			require_once $classFile;
+			if ( !class_exists( $className ) ) {
+				$this->errorId = 'ERR0802';
+				$this->errorMsg = 'Class doesn\'t appear to have loaded';
+				if ( $this->debug > 2 ) {
+					$this->throwError();
+				}
+			}
+		} elseif ( $this->debug > 1 ) {
+			$this->errorId = 'ERR0101';
+			$this->errorMsg = 'Class file is not found';
+			$this->throwError();
+		}
+	}
+	
+	/**
+	 * @access Public
 	 * @method backtrace
 	 * @return (string) backtrace
 	 * Builds backtrace string
@@ -139,12 +165,9 @@ class Core
 		/** series of checks **/
 		if ( empty( $file ) ) return false;
 		
-		/*** Feature modified 02/12/2011 9:13 PM : it seems there's problems
-		on subsequent reads in the same excution, this a workaround, let's us
-		store what we read in memory. Also, let's add an option to store in memory
-		or not. Note, this doesn't take into account changes to the file made by other
-		applications.
-		 */
+		/*** Feature added Unknown : To speed access to the file, lets the file contents into memory.
+		     This will increase memory consumtion.
+		***/
 		if ( $this->config[ 'LG_OW_Store_In_Memory' ] && $forceOpen == false ) {
 			if ( !empty( $this->storage[ 'file_handler' ][ $file ] ) ) {
 				return $this->storage[ 'file_handler' ][ 'contents' ];
@@ -159,6 +182,10 @@ class Core
 			}
 		} elseif ( is_file( $file ) ) {
 			if ( $h = @fopen( $file , 'r+' ) ) {
+				/*** Feature added 04/25/2011 : it seems there's problems
+				 on subsequent reads in the same excution, this a workaround, let's keep the file handle
+				 in memory during the excution.
+		 		*/
 				/** Store file handler in memory for later usage **/
 				$this->storage[ 'fila_handler' ][ $file ][ 'handle' ] = $h;
 				if ( !$data = fread( $h ,  filesize( $file ) ) ) {
@@ -192,6 +219,141 @@ class Core
 	}
 	
 	/**
+	 * @access Public
+	 * @method fileWrite
+	 * @param (string) String to write
+	 * @param (string) file path, if left empty, a temp file will be created, and temp name returned reference variable $filename
+	 * @param (array) Options: 
+	 *   wmode (string) Write mode supported by fopen(); IE. w or w+
+	 *   pmode (int) Permission mode in octate
+	 *   backup (bool) Store a backup of the file prior to writing
+	 *   IE. array( 'wmode' => 'w' , 'pmode' => 0700 , false );
+	 * @param (&var) Reference to the written file path
+	 * @return (bool)
+	 * Writes data to specified file or temporary file.
+	 * 
+	 */
+	public function fileWrite( $data , $file = null , $options = array() , &$filename )
+	{
+		/* Set default options */
+		if ( !empty( $options ) && is_array( $options ) ) {
+			$writeMode = $options[ 'wmode' ];
+			$writePerm = $options[ 'pmode' ];
+			$writeBackup = $options[ 'backup' ];
+		} else {
+			$writeMode = 'w';
+			$writePerm = 0700;
+			$writeBackup = false;
+		}
+		
+		$is_temp_file = false;
+		/* Error checking and fixing */
+		if ( $file == null || empty( $file ) ) {
+			/* Create a temp file */
+			$file = tempnam( $this->tempDir , 'lg_' );
+			$is_temp_file = true;
+		} elseif ( $writeBackup == true ) {
+			/* Feature added: 01/15/2011 */
+			/* Only make a back of the file, if file name is provided 
+			 * No sense to make a backup of a temp file 
+			 * We might not have the permission to write to directory, check if directory is writeasble
+			 * */
+			$directory = dirname( $file ) . DS;
+			if ( !is_writable( $directory ) ) {
+				/* Raise error */
+				$this->errorId  = 'ERR07107';
+				$this->errorMsg = "Directory ($directory) is not writeable, unable to make backup";
+				
+				if ( $this->debug > 1 ) {
+					$this->throwError();
+				} 
+			} elseif ( is_file( $file ) ) {
+				$dest = $directory . basename( $file ) . '.bak.0';
+				/* Feature added: 01/18/2011 */
+				/* Make incremental backups **/
+				/* Revision: 01/18/2011 8:16 PM
+				 * Make backup a suffix instead of prefix */
+				$i = 1;
+				$count = 1;
+				$first_file = null;
+				while( is_file( $dest ) ) {
+					if ( empty( $first_file ) ) {
+						$first_file = $dest;
+					}
+					$dest = $directory . basename( $writeFile ) . '.bak.' . $i;
+					$i++;
+					$count++;
+				}
+				
+				/* Remove the first file if the count is greater then what's configured */
+				if ( $count > $this->config[ 'LG_OW_Max_Backup' ] ) {
+					unlink( $first_file );
+				}
+				copy( $file , $dest );
+			}
+		}
+		if ( empty( $writeMode ) ) {
+			$writeMode = 'w';
+		}
+		if ( empty( $writePerm ) ) {
+			$writePerm = 0755;
+		}
+		
+		/* Retrieve handle */
+		$handle = @$this->storage[ 'fila_handler' ][ $file ][ 'handle' ];
+		if ( is_resource( $handle ) ) {
+			$h = $handle;
+		} elseif ( !$h = @fopen( $file , $writeMode ) ) {
+			$this->errorId = 'ERR0105';
+			$this->errorMsg = "Unable to open $file for writing. PHP Error: " . $this->capturePhpError();
+			$this->throwError();
+		} else {
+			/* Store handle */
+			$this->storage[ 'fila_handler' ][ $file ][ 'handle' ] = $h;	
+		}
+		
+		/* Feature added: 01/18/2011 */
+		/*** Feature modified 03/02/2011 3:29 PM : See BUG FIX below, pass back reference if data is empty
+		 * fwrite will return false, this is a workaround
+		 * ***/
+		/* Pass back the reference */
+		if ( empty( $data ) ) {
+			$filename = $writeFile;
+		}
+		
+		if ( @fwrite( $h , $data ) ) {
+			/* Feature added: 01/18/2011 */
+			/*** Feature modified 03/02/2011 3:29 PM : See BUG FIX below ***/
+			/* Pass back the file name we wrote to */
+			$filename = $file;
+				
+			/*** Feature added 02/12/2011 9:25 PM : Store file contents in memory ***/
+			if ( $this->config[ 'LG_OW_Store_In_Memory' ] ) {
+				if ( !$is_temp_file ) {
+					if ( $writeMode != 'a' && $writeMode != 'a+' ) {
+						$this->storage[ 'file_handler' ][ $writeFile ][ 'contents' ] = $writeData;
+					} else {
+						$this->openFile( $writeFile , true );
+					}
+				}
+			}
+			/*** Done ***/
+				
+			/*** Feature repaired 03/01/2011 3:09 PM : I didn't add the feature to set perms o_0 ***/
+			chmod( $file , $writePerm );
+			return true;
+			/*** Feature modifed (BUG FIX) 03/01/2011 2:52 PM : Just because it didn't write with no data,
+			 * Didn't mean it occurred an error. FIXED
+			 */
+		} elseif ( !empty( $data ) ) {
+			$this->errorId = 'ERR0106';
+			$this->errorMsg = "Unable to write to $file. PHP Error: " . $this->capturePhpError();
+			$this->throwError();
+		}
+		return false;
+	}
+	
+	/**
 	 * @access Private
 	 * @method enableTempDirectory
 	 * @return (null)
@@ -210,7 +372,7 @@ class Core
 				 * let's limit this to debug level 1 */
 				if ( $this->debug >= 1 ) {
 					$temp_is_writeable = false;
-					if ( FRAMEWORK_OS == 'Linux' ) {
+					if ( FW_OS == 'Linux' ) {
 						if ( is_writeable( $temp_dir ) )
 							$temp_is_writeable = true;
 					} elseif ( @file_put_contents( $temp_dir . 'writeable.txt' , 'Write test'  ) ) {
@@ -237,9 +399,78 @@ class Core
 	
 	/**
 	 * @access Public
+	 * @method logData
+	 * @param (string) Error ID
+	 * @param (string) Error Message
+	 * @param (array) Error Location
+	 *   IE: array( 'line' => __LINE__ , 'file' => __FILE__ );
+	 * @param (string) Error Type
+	 * @return (string) Returns PHP error if available
+	 * Logs data to log file
+	 * 
+	 */
+	public function logData( $errCode , $errContent , $errLocation= array() , $errType = 'USR' ) 
+	{
+		/*** Global Vars ***/
+  		
+  		/* Loggin is disabled */
+  		if ( $this->config[ 'LG_Log_Error' ] != true ) {
+  			return false;
+  		}
+  		
+  		/* Set log path */
+  		if ( empty( $this->config[ 'LG_Log_Path' ] ) ) {
+  			$log_file = $this->tempDir . 'log' .DS;
+  		} else {
+  			$log_file = $this->config[ 'LG_Log_Path' ];
+  		}
+  		if ( !is_dir( $log_file ) ) {
+  			if ( !$this->makeDir( $log_file ) ) {
+  				$this->errorId = 'ERR0202';
+				$this->errorMsg - 'Log error, unable to write to log. Suggest turning debug on.';
+  			}
+  		}
+   		$log_file .= $this->config[ 'LG_Log_Name' ];
+   		
+   		
+   		/* Error checking and fixing */
+		if ( empty( $errCode ) ) {
+			$errCode = 'ERR0000';
+		}
+   		if ( !preg_match( "`(SYS|SEC|USR|WAR)`" , $errType ) ) {
+   			$errType = 'USR';	
+   		}
+   		if ( empty( $errContent ) ) {
+   			$errContent = "Unknown";
+   		}   
+   		if ( !empty( $errLocation ) && is_array( $errLocation ) ) {
+   			if ( ( empty( $errLocation[ 'line' ] ) ) || ( preg_match( '/[A-Z]+/i',  $errLocation[ 'line' ] ) ) ) {
+   				$errLine = 'N/A';	
+   			}
+   			if ( empty( $errLocation[ 'file' ] ) ) {
+   				$errFile = 'N/A';
+   			}
+   		} else {
+   			$errLine = 'N/A';
+   			$errFile = 'N/A';
+   		}
+   		
+   		$log_contents = 'Date=' . DATE_SYSTEM . ", Type=$errType, Id=$errCode, Details=$errContent, Line=$errLine, File=$errFile";
+		
+		if ( !$this->fileWrite( $log_contents , $log_file , 'a' ) ) {
+			$this->errorId = 'ERR0202';
+			$this->errorMsg - 'Log error, unable to write to log. Suggest turning debug on.';
+			return false;
+		}	
+		return true;
+	}
+	
+	/**
+	 * @access Public
 	 * @method capturePhpError
 	 * @return (string) Returns PHP error if available
 	 * Print a date format text string 
+	 * 
 	 */
 	public function capturePhpError()
 	{
@@ -247,6 +478,28 @@ class Core
 			return 'Unknown';
 		}
 		return $php_errormsg;
+	}
+	
+	/**
+	 * @access Public
+	 * @method createRandomStr
+	 * @param (int) String length
+	 * @return (string) Returns a string a random characters
+	 * Creates a string of random characters specified by length.
+	 * 
+	 */
+	public function createRandomStr( $len = 8 )
+	{
+		$randstr = '';
+    	srand((double)microtime()*1000000);
+    	for($i=0;$i<$len;$i++){
+        	$n = rand(48,120);
+        	while (($n >= 58 && $n <= 64) || ($n >= 91 && $n <= 96)){
+            	$n = rand(48,120);
+        	}
+        	$randstr .= chr($n);
+    	}
+    	return $randstr;
 	}
 	
 	/**
@@ -270,10 +523,26 @@ class Core
 	 * Retrieves current save sapi
 	 *  
 	 */
-	function getSapi()
+	public function getSapi()
 	{
 		return $this->sapi;
 	}
+	
+	/**
+	 * @access Public
+	 * @method getTempDir
+	 * @return (string) Return temporary directory path
+	 * Retrieves the current temporary Directory
+	 * 
+	 * Possible bug fix to prevent $this->tempDir from
+	 * being modiffied. 
+	 * 
+	 */
+	public function getTempPath()
+	{
+		return $this->tempDir;
+	}
+	
 	
 	
 }

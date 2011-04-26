@@ -314,3 +314,9 @@ $_CFG[ 'LG_Default_Admin_Email' ] = "admin@localhost"; /* string */
        that could slow down performance.
 */
 $_CFG[ 'LG_OW_Store_In_Memory' ] = false; /* bool */
+
+/* fileWrite
+ The maxmum number of backs to keep at one time
+*/
+$_CFG[ 'LG_OW_Max_Backup' ] = 5; /* integer */
+ */
