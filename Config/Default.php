@@ -79,7 +79,7 @@ $_CFG[ 'LG_Relative_Path' ] = null; /* string */
   	    2 for debug level 2
  
 */
-$_CFG[ 'LG_Debug' ] = 1; /* integer */
+$_CFG[ 'LG_Debug' ] = 2; /* integer */
 
 
 /* set a list of ip(s) that are safe to display errors to the screen 
@@ -316,7 +316,6 @@ $_CFG[ 'LG_Default_Admin_Email' ] = "admin@localhost"; /* string */
 $_CFG[ 'LG_OW_Store_In_Memory' ] = false; /* bool */
 
 /* fileWrite
- The maxmum number of backs to keep at one time
+ The maxmum number of backups to keep at one time
 */
 $_CFG[ 'LG_OW_Max_Backup' ] = 5; /* integer */
- */
