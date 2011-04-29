@@ -91,10 +91,3 @@ class Framework extends Core
 	}
 	
 }
-
-$LightJet = new Framework;
-
-$LightJet->loadClass( 'Email' );
-
-$email = new Email();
-$email->validateEmail( 'bat@bat.org' );
