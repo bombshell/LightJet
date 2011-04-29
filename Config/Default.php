@@ -221,18 +221,12 @@ $_CFG[ 'LG_Log_Name' ] = "error.log.txt"; /* string */
 
 /* if set, this will help distinguish between bad and good domain names. www.example.org but not www.example.fgs 
 
- note: if left blank, com and net will be assumed
+ note: if left blank, default to com and net
  
- note: 3 characters long and 3 characters short
- 
- functions that are dependent of this value are
-    
-    http::parse_url()
-    and any other functions that depend on http::_parse_url()
+ note: various function depend on this setting
 
 */
-//$_CFG[ 'valid_domain_extensions' ] = "com, net, org, gov, biz"; /* string */
-/*  TODO 3 -oevil-genius -cClass_Config : This has to be moved to it's own config */
+$_CFG[ 'LG_Valid_Domain_Extensions' ] = "com, net, org, gov, biz"; /* string */
 
 
 /* sometimes, some applications might use pear api(s). If you have pear installed, where is located? 

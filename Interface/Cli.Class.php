@@ -61,7 +61,7 @@ class Framework extends Core
 			$replace[ '<%backtrace%>' ] = null;
 		}
 		$replace[ '<%message%>' ] = $errormsg;
-		
+		$this->initMode = 'error';
 		if ( !$str = $this->stripReplace( $replace , null , DEFAULT_ERROR_BLOCK ) ) {
 			/** Remainder, if you make adjustments here, remember to make adjustments in Web.Class.php **/
 			$str = "Error ID: $errorid\n";
@@ -70,7 +70,7 @@ class Framework extends Core
 			$str .= "Error Message: Unable to retrieve Error Template\n";
 		}
 		$handle = fopen( 'php://stderr' , 'w' );
-		fwrite($handle, $str );
+		fwrite( $handle , $str );
 		fclose( $handle );
 		exit(1);
 	}

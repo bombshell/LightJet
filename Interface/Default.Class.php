@@ -54,7 +54,8 @@ class Core
 		}
 		
 		/* Set temp directory if possible */
-		$this->enableTempDirectory();
+		if ( !defined( 'TEMP_DIR' ) ) 
+			$this->enableTempDirectory();
 	}
 	
 	/**
@@ -78,7 +79,7 @@ class Core
 			}
 		} elseif ( $this->debug > 1 ) {
 			$this->errorId = 'ERR0101';
-			$this->errorMsg = 'Class file is not found';
+			$this->errorMsg = 'Error: Class file could not be found: ' . $classFile;
 			$this->throwError();
 		}
 	}
@@ -92,7 +93,8 @@ class Core
 	 */
 	public function createBacktrace()
 	{
-		$array_backtrace = debug_backtrace();
+		/*** Feature Added 04.28.2011 : Reverse back trace ***/
+		$array_backtrace = array_reverse( debug_backtrace() , true );
 		$str = null;
 		foreach( $array_backtrace as $level => $backtrace ) {
 			$str .= "#$level ";
@@ -112,11 +114,14 @@ class Core
 				$str .= $func_args;
 			}
 			$str .= ') called at [' . $backtrace[ 'file' ] . ':' . $backtrace[ 'line' ]. ']' . "\r\n";
-			$str .= "#Object[$level]: \r\n";
-			foreach( $backtrace[ 'object' ] as $properties => $value ) {
-				$str .= " $properties => $value \r\n";
+			/*** BUG Fixed 04.28.2011 : $backtrace[object] can be empty. Don't assum it's always an object ***/
+			if ( !empty( $backtrace[ 'object' ] ) ) {
+				$str .= "#Object[$level]: \r\n";
+				foreach( $backtrace[ 'object' ] as $properties => $value ) {
+					$str .= " $properties => $value \r\n";
+				}
+				$str .= "\r\n";
 			}
-			$str .= "\r\n";
 		}
 		return $str;
 	}
@@ -134,7 +139,7 @@ class Core
 	{
 		/* Open file for substition */
 		if ( !empty( $file ) ) {
-			if ( $this->initMode == 'init' ) {
+			if ( $this->initMode == 'init' || $this->initMode == 'error' ) {
 				if ( !$replaceStr = @file_get_contents( $file ) ) {
 					return false;
 				}
@@ -510,7 +515,7 @@ class Core
 	 * errorId and errorMsg
 	 * 
 	 */
-	private function throwError()
+	protected function throwError()
 	{
 		$this->printError( $this->errorId , $this->errorMsg );
 		exit(1);

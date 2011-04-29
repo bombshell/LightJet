@@ -59,7 +59,6 @@ class Framework extends Core
 	{
 		/* Set default hidden message */
 		$hidden_msg = 'Unfortunately, we\'ve encountered an error at this time';
-		
 		$safe_ip = explode( ',' , $this->config[ 'LG_Safe_Client_IP' ] );
 		if ( !in_array( $_SERVER[ 'REMOTE_ADDR' ] , $safe_ip ) ) {
 			$errormsg = $hidden_msg;
@@ -80,6 +79,7 @@ class Framework extends Core
 			$replace[ '<%backtrace%>' ] = null;
 		}
 		$replace[ '<%message%>' ] = $errormsg;
+		$this->initMode = 'error';
 		if ( !$str = $this->stripReplace( $replace , null , DEFAULT_ERROR_BLOCK ) ) {
 			/** Remainder, if you make adjustments here, remember to make adjustments in Cli.Class.php **/
 			$str = "Error ID: $errorid\n";
@@ -92,6 +92,9 @@ class Framework extends Core
 	
 }
 
-echo $_SERVER[ 'REMOTE_ADDR' ];
-
 $LightJet = new Framework;
+
+$LightJet->loadClass( 'Email' );
+
+$email = new Email();
+$email->validateEmail( 'bat@bat.org' );
