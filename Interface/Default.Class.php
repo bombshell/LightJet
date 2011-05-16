@@ -34,14 +34,25 @@ class Core
 	
 	public function __construct( $path_config = null )
 	{
-		if ( empty( $path_config ) ) {
+		/* Set and load configuration */
+		if ( empty( $path_config ) || !is_file( $path_config ) ) {
 			$path_config = FW_PATH_CONFIG . 'Default.php';
 		}
 		require $path_config;
+		if ( !defined( 'FW_PATH_FW_CONFIG' ) )
+			define( 'FW_PATH_FW_CONFIG' , $path_config );
+		
 		$this->config   = $_CFG;
 		$this->debug    = $_CFG[ 'LG_Debug' ];
 		$this->initMode = 'init';
 		
+		/* Set timezone if undefined */
+		if ( ini_get( 'date.timezone' ) == null ) {
+			date_default_timezone_set( $_CFG[ 'LG_Default_Timezone' ] );
+		}
+		define( 'DATE_SYSTEM'    , date( 'r' ) );
+		define( 'DATE'           , date( 'D, M d Y h:i:s A O ') );
+
 		/* Enable debugging (verbose PHP) */
 		if ( $this->debug >= 1 ) {
 			ini_set( 'track_errors' , 'on' );
@@ -113,7 +124,7 @@ class Core
 				}
 				$str .= $func_args;
 			}
-			$str .= ') called at [' . $backtrace[ 'file' ] . ':' . $backtrace[ 'line' ]. ']' . "\r\n";
+			@$str .= ') called at [' . $backtrace[ 'file' ] . ':' . $backtrace[ 'line' ]. ']' . "\r\n";
 			/*** BUG Fixed 04.28.2011 : $backtrace[object] can be empty. Don't assum it's always an object ***/
 			if ( !empty( $backtrace[ 'object' ] ) ) {
 				$str .= "#Object[$level]: \r\n";
@@ -179,10 +190,13 @@ class Core
 			}
 		}
 		
-		$handle = $this->storage[ 'fila_handler' ][ $file ][ 'handle' ];
+		$handle = @$this->storage[ 'file_handler' ][ $file ][ 'handle' ];
 		$read   = true;
 		if ( is_resource( $handle ) ) {
-			if ( !$data = @fread( $handle ,  filesize( $file ) ) ) {
+			//var_dump( stream_get_meta_data( $handle ) );
+			/* rewind handle */
+			rewind( $handle ); 
+			if ( !$data = fread( $handle ,  filesize( $file ) ) ) {
 				$read = false;
 			}
 		} elseif ( is_file( $file ) ) {
@@ -192,7 +206,7 @@ class Core
 				 in memory during the excution.
 		 		*/
 				/** Store file handler in memory for later usage **/
-				$this->storage[ 'fila_handler' ][ $file ][ 'handle' ] = $h;
+				$this->storage[ 'file_handler' ][ $file ][ 'handle' ] = $h;
 				if ( !$data = fread( $h ,  filesize( $file ) ) ) {
 					$read = false;
 				}
@@ -238,17 +252,13 @@ class Core
 	 * Writes data to specified file or temporary file.
 	 * 
 	 */
-	public function fileWrite( $data , $file = null , $options = array() , &$filename )
+	public function fileWrite( $data , $file = null , $options = array() , &$filename = false )
 	{
 		/* Set default options */
 		if ( !empty( $options ) && is_array( $options ) ) {
-			$writeMode = $options[ 'wmode' ];
-			$writePerm = $options[ 'pmode' ];
-			$writeBackup = $options[ 'backup' ];
-		} else {
-			$writeMode = 'w';
-			$writePerm = 0700;
-			$writeBackup = false;
+			$writeMode   = @$options[ 'wmode' ];
+			$writePerm   = @$options[ 'pmode' ];
+			$writeBackup = @$options[ 'backup' ];
 		}
 		
 		$is_temp_file = false;
@@ -257,7 +267,7 @@ class Core
 			/* Create a temp file */
 			$file = tempnam( $this->tempDir , 'lg_' );
 			$is_temp_file = true;
-		} elseif ( $writeBackup == true ) {
+		} elseif ( !empty( $writeBackup ) ) {
 			/* Feature added: 01/15/2011 */
 			/* Only make a back of the file, if file name is provided 
 			 * No sense to make a backup of a temp file 
@@ -285,7 +295,7 @@ class Core
 					if ( empty( $first_file ) ) {
 						$first_file = $dest;
 					}
-					$dest = $directory . basename( $writeFile ) . '.bak.' . $i;
+					$dest = $directory . basename( $file ) . '.bak.' . $i;
 					$i++;
 					$count++;
 				}
@@ -297,11 +307,13 @@ class Core
 				copy( $file , $dest );
 			}
 		}
+		
+		/*** Series of Checks ***/
 		if ( empty( $writeMode ) ) {
 			$writeMode = 'w';
 		}
 		if ( empty( $writePerm ) ) {
-			$writePerm = 0755;
+			$writePerm = 0700;
 		}
 		
 		/* Retrieve handle */
@@ -323,7 +335,7 @@ class Core
 		 * ***/
 		/* Pass back the reference */
 		if ( empty( $data ) ) {
-			$filename = $writeFile;
+			$filename = $file;
 		}
 		
 		if ( @fwrite( $h , $data ) ) {
@@ -335,10 +347,12 @@ class Core
 			/*** Feature added 02/12/2011 9:25 PM : Store file contents in memory ***/
 			if ( $this->config[ 'LG_OW_Store_In_Memory' ] ) {
 				if ( !$is_temp_file ) {
+					/* if it's in Append mode, then it's not the entire file contents */
 					if ( $writeMode != 'a' && $writeMode != 'a+' ) {
-						$this->storage[ 'file_handler' ][ $writeFile ][ 'contents' ] = $writeData;
+						$this->storage[ 'file_handler' ][ $file ][ 'contents' ] = $data;
 					} else {
-						$this->openFile( $writeFile , true );
+						/* ReRead the entire file contents after append write */
+						$this->fileRead( $file , true );
 					}
 				}
 			}
@@ -356,6 +370,26 @@ class Core
 			$this->throwError();
 		}
 		return false;
+	}
+	
+	public function makeDir( $dir , $mode = 0775 )
+	{
+		if ( empty( $dir ) ) {
+			$this->errorId = 'ERRx0109';
+			$this->errorMsg = 'Missing directory to create';
+			$this->throwError();
+			return false;
+		}
+		if ( !is_int( $mode ) ) {
+			$mode = 0775;
+		}
+		if ( !@mkdir( $dir , $mode , true ) ) {
+			$this->errorId = 'ERRx0109';
+			$this->errorMsg = "Unable to create $dir. PHP Error: {$this->capturePhpError()}";
+			$this->throwError();
+			return false;
+		}
+		return true;
 	}
 	
 	/**
@@ -425,7 +459,7 @@ class Core
   		
   		/* Set log path */
   		if ( empty( $this->config[ 'LG_Log_Path' ] ) ) {
-  			$log_file = $this->tempDir . 'log' .DS;
+  			$log_file = $this->getTempPath() . 'log' .DS;
   		} else {
   			$log_file = $this->config[ 'LG_Log_Path' ];
   		}
@@ -451,18 +485,21 @@ class Core
    		if ( !empty( $errLocation ) && is_array( $errLocation ) ) {
    			if ( ( empty( $errLocation[ 'line' ] ) ) || ( preg_match( '/[A-Z]+/i',  $errLocation[ 'line' ] ) ) ) {
    				$errLine = 'N/A';	
+   			} else {
+   				$errLine = $errLocation[ 'line' ];
    			}
    			if ( empty( $errLocation[ 'file' ] ) ) {
    				$errFile = 'N/A';
+   			} else {
+   				$errFile = $errLocation[ 'file' ];
    			}
    		} else {
    			$errLine = 'N/A';
    			$errFile = 'N/A';
    		}
    		
-   		$log_contents = 'Date=' . DATE_SYSTEM . ", Type=$errType, Id=$errCode, Details=$errContent, Line=$errLine, File=$errFile";
-		
-		if ( !$this->fileWrite( $log_contents , $log_file , 'a' ) ) {
+   		$log_contents = 'Date=' . DATE_SYSTEM . ", Type=$errType, Id=$errCode, Details=$errContent, Line=$errLine, File=$errFile\n";
+		if ( !$this->fileWrite( $log_contents , $log_file , array( 'wmode' => 'a' ) ) ) {
 			$this->errorId = 'ERR0202';
 			$this->errorMsg - 'Log error, unable to write to log. Suggest turning debug on.';
 			return false;
@@ -545,7 +582,7 @@ class Core
 	 */
 	public function getTempPath()
 	{
-		return $this->tempDir;
+		return TEMP_DIR;
 	}
 	
 	

@@ -23,8 +23,6 @@ define( 'FW_COPY_STRING' , FW_NAME . ' (c) 2011 Bombshellnet.org Ver. ' . FW_VER
 define( 'FW_COPY_HTML'   , preg_replace( '`(\(c\))`', '&copy;' , FW_COPY_STRING ) );
 define( 'FW_PATH_CONFIG' , FW_ROOT_PATH . 'Config' . DS );
 define( 'FW_PATH_LIB'    , FW_ROOT_PATH . 'Library' . DS );
-define( 'DATE_SYSTEM'    , date( 'r' ) );
-define( 'DATE'           , date( 'D, M d Y h:i:s A O ') );
 
 /** Various information about the system **/
 if ( substr( PHP_OS, 0, 3 ) == 'WIN' ) {

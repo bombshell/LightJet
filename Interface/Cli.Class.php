@@ -51,7 +51,7 @@ class Framework extends Core
 	public function printError( $errorid , $errormsg )
 	{
 		$replace[ '<%version%>' ]      = FW_VERSION;
-		$replace[ '<%message_type%>' ] = '<span style="color: red;">Error</span>';
+		$replace[ '<%message_type%>' ] = 'Error';
 		$replace[ '<%message_code%>' ] = $errorid;
 		$replace[ '<%config_name%>' ]  = $this->config[ 'LG_Config_Name' ];
 		

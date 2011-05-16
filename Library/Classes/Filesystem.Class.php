@@ -16,43 +16,63 @@
 	
 ***/
 
-/** Framework Loader **/
-
-/** Settings **/
-
-/*
-	Root path of this framework.
-	
- 	 Note: If running this framework on WIndows, remember to use the proper prefix. IE. X:\
- 	 
-	 Note: If left black, this file base directory will be considered as the
-	       root path.
-*/
-$root_path = "";
-
-
-/*** Do NOT modify anything below this line ***/
-
-/** Setup default functions, variables, constants **/
-define( 'DS' , DIRECTORY_SEPARATOR ); /* Shorten the directory separator */
-function path_rewrite( $path ) { return preg_replace( '`(\\\|/)`' , DS , $path ); }
-if ( empty( $root_path ) ) $root_path = dirname( __FILE__ ) . DS;
-else {
-	if ( !preg_match( '/(\\\|/)$/' , $root_path ) ) {
-		$root_path .= DS;
+/**
+ * @category Class
+ * @name Filesystem
+ * @version 0.2.0
+ * 
+ */
+class Filesystem extends Core
+{
+	public function __construct()
+	{
+		/* Init Core */
+		if ( defined( 'FW_PATH_FW_CONFIG' ) ) {
+			$path_config = FW_PATH_FW_CONFIG;
+		}
+		parent::__construct(@$path_config);
 	}
-	$root_path = path_rewrite( $root_path );
+	
+	/**
+	 * 
+	 * Reads directory contents into array
+	 * @param (string) $dir Directory Path
+	 * @return (array) Returns directory contents in array or False on error
+	 * 
+	 */
+	public function dirRead( $dir )
+	{
+		/* Check if directory exists */
+		/* Open directory handle */
+		/* Build directory array */
+		/*** Series of Checks ***/
+		if ( file_exists( $dir ) ) {
+			if ( !is_dir( $dir ) ) {
+				$this->errorId = 'ERRx0116';
+				$this->errorMsg = "Error: is not a directory: '$dir'";
+				return false;
+			}
+		} else {
+			$this->errorId = 'ERR0108';
+			$this->errorMsg = "Error: Directory not found '$dir'";
+			return false;
+		}
+		
+		if ( @is_resource( $this->storage[ 'dirHandles' ][ $dir ][ 'handle' ] ) ) 
+			$h = $this->storage[ 'dirHandles' ][ $dir ][ 'handle' ];
+		elseif ( !$h = @opendir( $dir ) ) {
+			$this->errorId = 'ERR0111';
+			$this->errorMsg = "Error: Unable to open directory '$dir': Permission Denied";
+		} else {
+			/* Store handle in memory */
+			$this->storage[ 'dirHandles' ][ $dir ][ 'handle' ] = $h;
+		}
+		
+		while( false !== ($file = readdir( $h ) ) ) {
+			if ( $file != '.' && $file != '..' ) {
+				$array[] = $file;
+			}
+		}
+		return $array;
+	}
 }
-
-/** verify if core.php could be found **/
-if ( !is_file( $root_path . 'Core.php' ) ) {
-	print "Error: Framework Core.php could not be found within $root_path";
-}
-
-/** Continue defining constants **/
-define( 'FW_ROOT_PATH' , $root_path );
-
-/** Clean up **/
-unset( $root_path );
-
-require FW_ROOT_PATH . 'Core.php';

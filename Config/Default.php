@@ -313,3 +313,8 @@ $_CFG[ 'LG_OW_Store_In_Memory' ] = false; /* bool */
  The maxmum number of backups to keep at one time
 */
 $_CFG[ 'LG_OW_Max_Backup' ] = 5; /* integer */
+
+/* Default TimeZone
+ Set the default time zone, if PHP TimeZone setting is undefined
+*/
+$_CFG[ 'LG_Default_Timezone' ] = 'America/New_York';

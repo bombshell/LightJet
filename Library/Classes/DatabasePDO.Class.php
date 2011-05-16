@@ -28,6 +28,7 @@ class Database extends Core
 	public $errorMsg;
 	
 	public $dbTableName;
+	public $pdo;
 	
 	/**
 	 * @method __construct
@@ -50,6 +51,9 @@ class Database extends Core
 	 */
 	public function __construct( $connectOptions )
 	{
+		/** init Core **/
+		parent::__construct();
+		
 		/* Series of checks */
 		if ( !is_array( $connectOptions ) ) {
 			return false;
@@ -58,13 +62,13 @@ class Database extends Core
 			return false;
 		}
 		
-		$dbType = $connectOptions[ 'dbType' ];
-		$dbName = $connectOptions[ 'dbName' ];
-		$dbUser = $connectOptions[ 'dbUser' ];
-		$dbPass = $connectOptions[ 'dbPass' ];
-		$dbPath = $connectOptions[ 'dbPath' ];
-		$dbPort = $connectOptions[ 'dbPort' ];
-		$dbOpts = $connectOptions[ 'dbOpts' ];
+		$dbType = @$connectOptions[ 'dbType' ];
+		$dbName = @$connectOptions[ 'dbName' ];
+		$dbUser = @$connectOptions[ 'dbUser' ];
+		$dbPass = @$connectOptions[ 'dbPass' ];
+		$dbPath = @$connectOptions[ 'dbPath' ];
+		$dbPort = @$connectOptions[ 'dbPort' ];
+		$dbOpts = @$connectOptions[ 'dbOpts' ];
 		
 		switch ( $dbType )
 		{
@@ -77,8 +81,6 @@ class Database extends Core
 				} 
 				//mysql:host=localhost;port=3307;dbname=testdb
 				$dsn = "mysql:host=$dbPath;port=$dbPort;dbname=$dbName";
-				/* set curent database table name */
-				$this->dbTableName = $dbName;
 			break;
 			
 			case 'sqlite':
@@ -102,9 +104,8 @@ class Database extends Core
 		} catch (PDOException $e) {
 			$this->errorId = 'ERR0403';
     		$this->errorMsg = 'Connection failed: ' . $e->getMessage();
-    		
     		/* Troubleshoot database connection */
-    		$this->log( $this->errorId , $this->errorMsg , null , null , 'SYS' );
+    		$this->logData( $this->errorId , $this->errorMsg , null , 'SYS' );
     		if ( $this->debug > 1 ) {
     			$this->throwError();	
     		}
@@ -238,7 +239,8 @@ class Database extends Core
 	public function exec( $sql )
 	{
 		/* BUG: we need to null errorId and errorMsg */
-		$this->nullErrors();
+		$this->errorId = null;
+		$this->errorMsg = null;
 		/* Check if we have a database connection before we continue */
 		if ( !is_object( $this->pdo ) ) {
 			$this->errorId = 'ERR0401';
@@ -252,7 +254,7 @@ class Database extends Core
 			$this->errorId = 'ERR0401';
 			
 			/*** Feature Replicated 02/28/2011 ***/
-			$db_msg ( !empty( $error[2] ) ) ? $error[2] : 'Unknown';
+			$db_msg = ( !empty( $error[2] ) ) ? $error[2] : 'Unknown';
 			@$this->errorMsg = "Db error id: {$error[0]} Db error msg: {$error[2]}";
 			return false;
 		}
@@ -273,7 +275,7 @@ class Database extends Core
 			$this->errorMsg = 'Running a query on a invalid database connection';
 			return false;	
 		}
-		return $this->dbObj->quote( $str );
+		return $this->pdo->quote( $str );
 	}
 	
 	/**
